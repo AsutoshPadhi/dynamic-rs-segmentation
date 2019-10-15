@@ -7,6 +7,7 @@ import sys
 import gdal
 import numpy as np
 import scipy.misc
+import imageio
 import tensorflow as tf
 from PIL import Image
 from skimage import img_as_float
@@ -192,20 +193,20 @@ def load_images(path, instances, process, image_type='vaihingen'):
         print(BatchColors.OKBLUE + 'Reading instance ' + str(f) + BatchColors.ENDC)
         if image_type == 'vaihingen':
             img_ndsm = img_as_float(
-                scipy.misc.imread(path + 'normalized_DSM/dsm_09cm_matching_area' + str(f) + '_normalized.jpg'))
+                imageio.imread(path + 'normalized_DSM/dsm_09cm_matching_area' + str(f) + '_normalized.jpg'))
             img_ndsm = np.reshape(img_ndsm, (len(img_ndsm), len(img_ndsm[0]), 1))
 
-            img_rgb = img_as_float(scipy.misc.imread(path + 'top/top_mosaic_09cm_area' + str(f) + '.tif'))
+            img_rgb = img_as_float(imageio.imread(path + 'top/top_mosaic_09cm_area' + str(f) + '.tif'))
 
             if process == 'validate_test':
-                img_label = scipy.misc.imread(path + 'gts_eroded_encoding/top_mosaic_09cm_area' + str(f) +
+                img_label = imageio.imread(path + 'gts_eroded_encoding/top_mosaic_09cm_area' + str(f) +
                                               '_noBoundary.tif')
             elif  process == 'training' or process == 'crf':
-                img_label = scipy.misc.imread(path + 'gts_enconding/top_mosaic_09cm_area' + str(f) + '.tif')
+                img_label = imageio.imread(path + 'gts_enconding/top_mosaic_09cm_area' + str(f) + '.tif')
             # else:
                 # create_final_map
         elif image_type == 'postdam':
-            img_ndsm = img_as_float(scipy.misc.imread(path + '1_DSM_normalisation/dsm_potsdam_0' + (
+            img_ndsm = img_as_float(imageio.imread(path + '1_DSM_normalisation/dsm_potsdam_0' + (
                 str(f) if int(f.split("_")[1]) >= 10 else str(f.split("_")[0]) + '_0' + str(
                     f.split("_")[1])) + '_normalized_lastools.jpg'))
             if len(img_ndsm) != len(img_ndsm[0]):
@@ -213,17 +214,17 @@ def load_images(path, instances, process, image_type='vaihingen'):
                 img_ndsm = np.append(img_ndsm, new_columns, axis=1)
             img_ndsm = np.reshape(img_ndsm, (len(img_ndsm), len(img_ndsm[0]), 1))
 
-            # img_rgb = img_as_float(scipy.misc.imread(path+'4_Ortho_RGBIR/top_potsdam_' + str(f) + '_RGBIR.tif'))
+            # img_rgb = img_as_float(imageio.imread(path+'4_Ortho_RGBIR/top_potsdam_' + str(f) + '_RGBIR.tif'))
             ds = gdal.Open(path + '4_Ortho_RGBIR/top_potsdam_' + str(f) + '_RGBIR.tif')
             img_rgb = np.empty([ds.RasterXSize, ds.RasterYSize, ds.RasterCount], dtype=np.float64)
             for band in range(1, ds.RasterCount + 1):
                 img_rgb[:, :, band - 1] = img_as_float(np.array(ds.GetRasterBand(band).ReadAsArray()))
 
             if process == 'validate_test':
-                img_label = scipy.misc.imread(path + 'gts_eroded_encoding/top_potsdam_' + str(f) +
+                img_label = imageio.imread(path + 'gts_eroded_encoding/top_potsdam_' + str(f) +
                                               '_label_noBoundary.tif')
             elif process == 'training' or process == 'crf':
-                img_label = scipy.misc.imread(path + 'gts_enconding/top_potsdam_' + str(f) + '_label.tif')
+                img_label = imageio.imread(path + '5_Labels_all/top_potsdam_' + str(f) + '_label.tif')
             # else:
                 # create_final_map
 
@@ -238,6 +239,7 @@ def load_images(path, instances, process, image_type='vaihingen'):
         if process == 'validate_test' or process == 'training' or process == 'crf':
             masks.append(img_label)
     # print np.bincount(img_label.flatten())
+    print("testing")
 
     return np.asarray(images), np.asarray(masks)
 
@@ -447,9 +449,11 @@ def select_super_batch_instances(class_distribution, rotation_distribution=None,
 
 def create_distributions_over_classes(labels, crop_size, stride_crop):
     classes = [[[] for i in range(0)] for i in range(NUM_CLASSES)]
-
+    print(len(classes))
+    print(len(labels))
+    print("------------------")
     for k in range(len(labels)):
-        w, h = labels[k].shape
+        w, h, channels = labels[k].shape
 
         for i in range(0, w, stride_crop):
             for j in range(0, h, stride_crop):
@@ -469,8 +473,11 @@ def create_distributions_over_classes(labels, crop_size, stride_crop):
                     cur_y = cur_y - (crop_size - len(patch_class[0]))
                     patch_class = labels[cur_map][cur_x:cur_x + crop_size, cur_y:cur_y + crop_size]
 
-                if patch_class.shape == (crop_size, crop_size):
+                if patch_class.shape == (crop_size, crop_size, channels):
                     count = np.bincount(patch_class.astype(int).flatten())
+                    print(count)
+                    print(len(count))
+                    print(int(np.argmax(count)))
                     classes[int(np.argmax(count))].append((cur_map, cur_x, cur_y))
                 else:
                     print(BatchColors.FAIL + "Error create_distributions_over_classes: Current patch size is " + str(
@@ -2066,7 +2073,9 @@ def main():
     # PROCESS IMAGES
     print(BatchColors.WARNING + 'Reading images...' + BatchColors.ENDC)
     training_data, training_labels = load_images(input_path, trainingInstances, process, image_type=dataset)
+    print("Training Data Loaded ...")
     testing_data, testing_labels = load_images(input_path, testing_instances, process, image_type=dataset)
+    print("Testing Data Loaded ...")
     print(training_data.shape, training_labels.shape)
     print(testing_data.shape, testing_labels.shape)
 
