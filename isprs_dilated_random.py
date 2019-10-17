@@ -217,6 +217,10 @@ def load_images(path, instances, process, image_type='vaihingen'):
             # img_rgb = img_as_float(imageio.imread(path+'4_Ortho_RGBIR/top_potsdam_' + str(f) + '_RGBIR.tif'))
             ds = gdal.Open(path + '4_Ortho_RGBIR/top_potsdam_' + str(f) + '_RGBIR.tif')
             img_rgb = np.empty([ds.RasterXSize, ds.RasterYSize, ds.RasterCount], dtype=np.float64)
+            print("-------------------------------------------------------")
+            print(ds.RasterXSize, ds.RasterYSize, ds.RasterCount)
+            print("-------------------------------------------------------")
+            print(img_rgb)
             for band in range(1, ds.RasterCount + 1):
                 img_rgb[:, :, band - 1] = img_as_float(np.array(ds.GetRasterBand(band).ReadAsArray()))
 
@@ -239,7 +243,6 @@ def load_images(path, instances, process, image_type='vaihingen'):
         if process == 'validate_test' or process == 'training' or process == 'crf':
             masks.append(img_label)
     # print np.bincount(img_label.flatten())
-    print("testing")
 
     return np.asarray(images), np.asarray(masks)
 
@@ -475,9 +478,9 @@ def create_distributions_over_classes(labels, crop_size, stride_crop):
 
                 if patch_class.shape == (crop_size, crop_size, channels):
                     count = np.bincount(patch_class.astype(int).flatten())
-                    print(count)
-                    print(len(count))
-                    print(int(np.argmax(count)))
+                    # print(count)
+                    # print(len(count))
+                    # print(int(np.argmax(count)))
                     classes[int(np.argmax(count))].append((cur_map, cur_x, cur_y))
                 else:
                     print(BatchColors.FAIL + "Error create_distributions_over_classes: Current patch size is " + str(
