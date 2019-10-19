@@ -28,6 +28,16 @@ class BatchColors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+palette = {0 : (255, 255, 255), # Impervious surfaces (white)
+    1 : (0, 0, 255),     # Buildings (blue)
+    2 : (0, 255, 255),   # Low vegetation (cyan)
+    3 : (0, 255, 0),     # Trees (green)
+    4 : (255, 255, 0),   # Cars (yellow)
+    5 : (255, 0, 0),     # Clutter (red)
+    6 : (0, 0, 0)}       # Undefined (black)
+
+
+invert_palette = {v: k for k, v in palette.items()}
 
 def print_params(list_params):
     print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
@@ -184,6 +194,15 @@ def dynamically_calculate_mean_and_std(data, indexes, crop_size):
     # print 'count', count
     return np.mean(mean_full, axis=0), np.mean(std_full, axis=0)
 
+def convert_from_color(arr_3d, palette=invert_palette):
+    """ RGB-color encoding to grayscale labels """
+    arr_2d = np.zeros((arr_3d.shape[0], arr_3d.shape[1]), dtype=np.uint8)
+
+    for c, i in palette.items():
+        m = np.all(arr_3d == np.array(c).reshape(1, 1, 3), axis=2)
+        arr_2d[m] = i
+
+    return arr_2d
 
 def load_images(path, instances, process, image_type='vaihingen'):
     images = []
@@ -217,10 +236,10 @@ def load_images(path, instances, process, image_type='vaihingen'):
             # img_rgb = img_as_float(imageio.imread(path+'4_Ortho_RGBIR/top_potsdam_' + str(f) + '_RGBIR.tif'))
             ds = gdal.Open(path + '4_Ortho_RGBIR/top_potsdam_' + str(f) + '_RGBIR.tif')
             img_rgb = np.empty([ds.RasterXSize, ds.RasterYSize, ds.RasterCount], dtype=np.float64)
-            print("-------------------------------------------------------")
-            print(ds.RasterXSize, ds.RasterYSize, ds.RasterCount)
-            print("-------------------------------------------------------")
-            print(img_rgb)
+            # print("-------------------------------------------------------")
+            # print(ds.RasterXSize, ds.RasterYSize, ds.RasterCount)
+            # print("-------------------------------------------------------")
+            # print(img_rgb)
             for band in range(1, ds.RasterCount + 1):
                 img_rgb[:, :, band - 1] = img_as_float(np.array(ds.GetRasterBand(band).ReadAsArray()))
 
@@ -228,7 +247,7 @@ def load_images(path, instances, process, image_type='vaihingen'):
                 img_label = imageio.imread(path + 'gts_eroded_encoding/top_potsdam_' + str(f) +
                                               '_label_noBoundary.tif')
             elif process == 'training' or process == 'crf':
-                img_label = imageio.imread(path + '5_Labels_all/top_potsdam_' + str(f) + '_label.tif')
+                img_label = img_label = np.asarray(convert_from_color(imageio.imread(path + '5_Labels_all/top_potsdam_' + str(f) + '_label.tif')))
             # else:
                 # create_final_map
 
@@ -456,7 +475,7 @@ def create_distributions_over_classes(labels, crop_size, stride_crop):
     print(len(labels))
     print("------------------")
     for k in range(len(labels)):
-        w, h, channels = labels[k].shape
+        w, h = labels[k].shape
 
         for i in range(0, w, stride_crop):
             for j in range(0, h, stride_crop):
@@ -476,7 +495,7 @@ def create_distributions_over_classes(labels, crop_size, stride_crop):
                     cur_y = cur_y - (crop_size - len(patch_class[0]))
                     patch_class = labels[cur_map][cur_x:cur_x + crop_size, cur_y:cur_y + crop_size]
 
-                if patch_class.shape == (crop_size, crop_size, channels):
+                if patch_class.shape == (crop_size, crop_size):
                     count = np.bincount(patch_class.astype(int).flatten())
                     # print(count)
                     # print(len(count))
